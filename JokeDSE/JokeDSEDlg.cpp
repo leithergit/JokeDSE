@@ -69,6 +69,176 @@ int EnableDebugPriv(const TCHAR * name)  //提升进程为DEBUG权限
 	return 0;
 }
 
+
+void session::do_read()
+{
+	auto self(shared_from_this());
+	socket_.async_read_some(asio::buffer(pTempdata, max_length),
+		[this, self](std::error_code ec, std::size_t length)
+		{
+			MemMerge(&pBuffer, nDataLength, nBufferSize, pTempdata, length);
+			Parser();
+
+			if (!ec)
+			{
+				do_read();
+			}
+		});
+}
+
+void session::Parser()
+{
+	int	nWriteLine = 0;
+	int nBlockSize = 0;
+	int nToSave = 0;
+	CString strMessage;
+	int nOffset = 0;
+
+	try
+	{
+		if (nFileSize)
+		{
+			nWriteLine = __LINE__;
+			nBlockSize = nDataLength;
+			if (nSavedLength < nFileSize)
+			{
+				int nRemainedFileLen = nFileSize - nSavedLength;
+				nToSave = (nRemainedFileLen >= nDataLength) ? nDataLength : nRemainedFileLen;
+
+				FileSave.Write(pBuffer, nToSave);
+				nOffset += nToSave;
+				nSavedLength += nToSave;
+				pFileItem->nRecved = nSavedLength;
+
+			}
+
+			if (nSavedLength == nFileSize )
+				CloseFile();
+
+			if (nDataLength > 0)
+			{
+				GetFile(nOffset);
+				nDataLength -= nOffset;
+			}
+		}
+		else
+		{
+			GetFile(nOffset);
+			nDataLength -= nOffset;
+		}
+
+	}
+	catch (CMemoryException* e)
+	{
+		TCHAR szDateTime[32] = { 0 };
+		GetDateTime(szDateTime, 32);
+		TCHAR szError[1024] = { 0 };
+		e->GetErrorMessage(szError, 1024);
+		strMessage.Format(_T("%s Catch a MemoryException@%d,Block size = %d:%s"), szDateTime, nWriteLine, nBlockSize, szError);
+		pMainDlg->m_csMessage.Lock();
+		pMainDlg->m_vecMessage.push_back(strMessage);
+		pMainDlg->m_nExceptions++;
+		pMainDlg->m_csMessage.Unlock();
+
+	}
+	catch (CFileException* e)
+	{
+		TCHAR szDateTime[32] = { 0 };
+		GetDateTime(szDateTime, 32);
+		TCHAR szError[1024] = { 0 };
+		e->GetErrorMessage(szError, 1024);
+		strMessage.Format(_T("%s Catch a FileException@%d,Block size = %d:%s"), szDateTime, nWriteLine, nBlockSize, szError);
+		pMainDlg->m_csMessage.Lock();
+		pMainDlg->m_vecMessage.push_back(strMessage);
+		pMainDlg->m_nExceptions++;
+		pMainDlg->m_csMessage.Unlock();
+	}
+	catch (CException* e)
+	{
+		TCHAR szDateTime[32] = { 0 };
+		GetDateTime(szDateTime, 32);
+		TCHAR szError[1024] = { 0 };
+		e->GetErrorMessage(szError, 1024);
+		strMessage.Format(_T("%s Catch a Exception@%d,Block size = %d:%s"), szDateTime, nWriteLine, nBlockSize, szError);
+		pMainDlg->m_csMessage.Lock();
+		pMainDlg->m_vecMessage.push_back(strMessage);
+		pMainDlg->m_nExceptions++;
+		pMainDlg->m_csMessage.Unlock();
+	}
+	
+}
+
+void session::CloseFile()
+{
+	nSavedLength = 0;
+	nFileSize = 0;
+	ZeroMemory(szFilePath, sizeof(szFilePath));
+	FileSave.Close();
+	pMainDlg->m_csList.Lock();
+	pMainDlg->m_nSavedFiles++;
+	pFileItem->nStatus = true;
+	pMainDlg->m_csList.Unlock();
+}
+
+void session::GetFile(int& nOffset)
+{
+	int nToSave = 0;
+	while ((nDataLength - nOffset) >= sizeof(FilebufHeader))
+	{
+		FilebufHeader* pHeader = (FilebufHeader*)&pBuffer[nOffset];
+		if (pHeader->CheckPreFix() &&
+			pHeader->CheckCRC() &&
+			nDataLength > (pHeader->HeaderSize() + nOffset))
+		{
+			if (pMainDlg->m_nFoundFiles < pHeader->nFoundFiles)
+				pMainDlg->m_nFoundFiles = pHeader->nFoundFiles;
+
+			if (pMainDlg->m_nSkippedFiles < pHeader->nFilterFiles)
+				pMainDlg->m_nSkippedFiles = pHeader->nFilterFiles;
+
+			if (pMainDlg->m_nDecrypedFiles < pHeader->nDecryptFiles)
+				pMainDlg->m_nDecrypedFiles = pHeader->nDecryptFiles;
+
+			strncpy_s(szFilePath, 1024, pHeader->GetFileName(), pHeader->nNameSize);
+			nFileSize = pHeader->nFileSize;
+			strFileName = pMainDlg->m_strSavePath + _UnicodeString(szFilePath, CP_ACP);
+			int nPos = strFileName.ReverseFind(_T('\\'));
+			CString strDir = strFileName.Left(nPos);
+			if (!PathFileExists((LPTSTR)(LPCTSTR)strDir))
+				CreateDirectoryTree((LPTSTR)(LPCTSTR)strDir);
+
+			pMainDlg->m_csList.Lock();
+			pFileItem = make_shared<FileItem>(_UnicodeString(szFilePath, CP_ACP), strFileName, nFileSize);
+
+			pMainDlg->m_vecFileTemp.push_back(pFileItem);
+			pMainDlg->m_csList.Unlock();
+
+			FileSave.Open(strFileName, CFile::modeCreate | CFile::modeWrite);
+			if (pHeader->nFileSize)
+			{
+				int nDataSize = nDataLength - nOffset - pHeader->HeaderSize();
+				nToSave = (nDataSize <= nFileSize) ? nDataSize : nFileSize;
+
+				FileSave.Write(&pBuffer[nOffset + pHeader->HeaderSize()], nToSave);
+				nSavedLength = nToSave;
+				pFileItem->nRecved = nToSave;
+				nOffset += (pHeader->HeaderSize() + nToSave);
+
+				if (nSavedLength == nFileSize)
+				{
+					CloseFile();
+				}
+			}
+			else
+			{
+				CloseFile();
+				nOffset += pHeader->HeaderSize() ;
+			}
+		}
+		else
+			break;
+	}
+}
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -183,25 +353,25 @@ BOOL CJokeDSEDlg::OnInitDialog()
 	TraceMsgA("Window Rect(l = %d,t = %d,r = %d,b = %d.\n", rt.left, rt.top, rt.right, rt.bottom);
 	m_strFilter = _T(".git .svn .obj .aps .opt .sbr .res .pdb .bsc .pch .ipch .idb .ncb .plg .ilk .exe .nlb .sdf .exp .log .tlb .dep .suo .user .lastbuildstate .opensdf BuildLog.htm unsuccessfulbuild .tlog .gitignore .vs");
 	SetDlgItemText(IDC_EDIT_FILTER, m_strFilter);
-
-	if (!Start(55555))
-	{
-		DWORD dwError = WSAGetLastError();
-		TCHAR szErrormsg[1024] = { 0 };
-		LPVOID lpMsgBuf = NULL;
-		FormatMessage(
-			FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-			NULL,
-			dwError,
-			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-			(LPTSTR)&lpMsgBuf,
-			0,
-			NULL);
-		_stprintf(szErrormsg, _T("Failed in Starting Listen Port %d:%s"), 55555, (LPCTSTR)lpMsgBuf);
-		AfxMessageBox((LPCTSTR)szErrormsg, MB_OK | MB_ICONSTOP);
-		LocalFree(lpMsgBuf);
-		return TRUE;
-	}
+	Start(55555);
+	//if (!Start(55555))
+	//{
+	//	DWORD dwError = WSAGetLastError();
+	//	TCHAR szErrormsg[1024] = { 0 };
+	//	LPVOID lpMsgBuf = NULL;
+	//	FormatMessage(
+	//		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+	//		NULL,
+	//		dwError,
+	//		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+	//		(LPTSTR)&lpMsgBuf,
+	//		0,
+	//		NULL);
+	//	_stprintf(szErrormsg, _T("Failed in Starting Listen Port %d:%s"), 55555, (LPCTSTR)lpMsgBuf);
+	//	AfxMessageBox((LPCTSTR)szErrormsg, MB_OK | MB_ICONSTOP);
+	//	LocalFree(lpMsgBuf);
+	//	return TRUE;
+	//}
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 

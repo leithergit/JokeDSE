@@ -187,6 +187,8 @@ UINT CJokeAssistApp::SendThread()
 	pClient->EnableTCPDelay(TRUE);
 	int nBufferSize = 1 * 1024 * 1024;
 	shared_ptr<byte>pBuffer = shared_ptr<byte>(new byte[nBufferSize]);
+	int nSendFiles = 0;
+	int nFailedFiles = 0;
 	while (m_bSendThreadRun)
 	{
 		do
@@ -201,8 +203,10 @@ UINT CJokeAssistApp::SendThread()
 					UnlockAgent();
 					if (!SendFile(pFile->strDir, pFile->strFile, pClient, pBuffer.get(), nBufferSize))
 					{
+						nFailedFiles++;
 						TraceMsgW(L"%s Failed in sending file:%s.\n", __FUNCTIONW__, pFile->strFile);
 					}
+					nSendFiles++;
 				}
 				else
 					Sleep(10);
@@ -239,7 +243,7 @@ void CJokeAssistApp::AccessDirectory(CString strDirectory)
 		CString strFile = finder.GetFilePath();
 		CString strTemp = strFile;
 		strTemp.MakeUpper();
-		m_nFoundFiles++;
+		
 		if (CheckFilter(strTemp) ||
 			CheckFilter(strTemp, false))
 		{// ºöÂÔÄ¿Â¼
@@ -252,6 +256,7 @@ void CJokeAssistApp::AccessDirectory(CString strDirectory)
 		}
 		else
 		{
+			m_nFoundFiles++;
 			m_nTotalFileSize += finder.GetLength();
 			CString strReletivePath = strFile.Right(strFile.GetLength() - m_nDirLength);
 			m_csFileListtoSend.Lock();

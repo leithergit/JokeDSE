@@ -12,7 +12,12 @@
 #include <vector>
 #include "CriticalSectionAgent.h"
 #include "AutoLock.h"
+#include "asio.hpp"
+#include <thread>
 using namespace std;
+using namespace asio;
+using asio::ip::tcp;
+
 #pragma comment(lib,"shlwapi.lib")
 #include "../JokeAssist/JokeLib.h"
 #pragma comment(lib,"../debug/JokeAssistX.lib")
@@ -71,13 +76,111 @@ public:
 // 		}
 	}
 };
+class CJokeDSEDlg;
+class session
+	: public std::enable_shared_from_this<session>
+{
+public:
+	session(tcp::socket socket, CJokeDSEDlg *pDlg)
+		: socket_(std::move(socket))
+		, pMainDlg(pDlg)
+	{
+		pTempdata = new char[max_length];
+		ZeroMemory(pTempdata, max_length);
+		pBuffer = new char[nBufferSize];
+		ZeroMemory(pBuffer, nBufferSize);
+	}
+	~session()
+	{
+		if (pTempdata)
+			delete[]pTempdata;
+		if (pBuffer)
+			delete[]pBuffer;
+	}
+
+	void start()
+	{
+		do_read();
+	}
+	
+	int nHeaderLength = 0;
+	CHAR szFilePath[1024];
+	CString strFileName;
+	int nFileSize = 0;
+	int nSavedLength = 0;
+	int nFoundFiles = 0;
+	int nDecryptedFiles = 0;
+	int nFiltedFiles = 0;
+	int nSkipped = 0;
+	CFile FileSave;
+	FileItemPtr pFileItem = nullptr;
+	int		nRecvCount = 0;
+private:
+	void do_read();
+	void Parser();
+	void GetFile(int& nOffset);
+	void CloseFile();
+
+	tcp::socket socket_;
+	enum { max_length = 16384 };
+	char* pTempdata = nullptr;
+	char* pBuffer = nullptr;
+
+	int nDataLength = 0;
+	int nBufferSize = 128 * 1024;
+	CJokeDSEDlg* pMainDlg = nullptr;
+};
+typedef shared_ptr<session> sessionPtr;
 // CMyInjectionDlg dialog
 class CJokeDSEDlg : public CDialogEx,CSocketServer
 {
 // Construction
 public:
-
+	
 	CJokeDSEDlg(CWnd* pParent = NULL);	// standard constructor
+	shared_ptr<tcp::acceptor> m_pAcceptor = nullptr;
+	shared_ptr<io_context> m_pIO_context = nullptr;
+	shared_ptr<std::thread> m_pThread = nullptr;
+	list <sessionPtr> m_listSesstion;
+	void do_accept()
+	{
+		m_pAcceptor->async_accept(
+			[this](std::error_code ec, tcp::socket socket)
+			{
+				if (!ec)
+				{
+					
+					std::string strClientIP = socket.remote_endpoint().address().to_string();
+					unsigned short nClientPort = socket.remote_endpoint().port();
+					TraceMsgA("%s Accept Client %s:%d.\n", __FUNCTION__, strClientIP.c_str(), nClientPort);
+
+					sessionPtr pSession = std::make_shared<session>(std::move(socket),this);
+					//m_listSesstion.push_back(pSession);
+					pSession->start();
+				}
+
+				do_accept();
+			});
+	}
+	void Start(int nPort)
+	{
+		if (!m_pThread)
+		{
+			m_pIO_context = make_shared<io_context>();
+			m_pAcceptor = make_shared<tcp::acceptor>(*m_pIO_context, tcp::endpoint(tcp::v4(), nPort));
+			do_accept();
+			m_pThread = make_shared<std::thread>([&]() 
+				{
+					m_pIO_context->run();
+				});
+		}
+		
+	}
+	void Stop()
+	{
+		if (m_pThread)
+			m_pThread->join();
+	}
 
 // Dialog Data
 	enum { IDD = IDD_JOKEDSE_DIALOG };
