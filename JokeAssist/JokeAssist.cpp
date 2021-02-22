@@ -154,26 +154,30 @@ bool CJokeAssistApp::CheckFilter(CString strFile, bool bExt)
 //	
 //}
 
-#define  SendThreads	(1)
+#define  SendThreads	(8)
 UINT CJokeAssistApp::FindFiles()
 {
 	WaitForAttach(/*true*/);
-	m_bSendThreadRun = true;
-	HANDLE	hThreadArray[SendThreads] = { 0 };
-	for (int i = 0; i < SendThreads; i++)
-		hThreadArray[i] = (HANDLE)_beginthreadex(nullptr, 0, ThreadSendFiles, this, 0, 0);
-
 	m_strDirectory = szSourcePath;
 	m_strFilter = szFilter;
 	m_nDirLength = m_strDirectory.GetLength();
 	ULONGLONG nTotalFileSize = 0;
 	if (m_nDirLength > 0)
 		AccessDirectory(m_strDirectory/*, AccessFile, this*/);
-	// 必须等待所有发送线程结束
-	TraceMsgA("%s TotalFileSize = %I64u.\n", __FUNCTION__, m_nTotalFileSize);
-	WaitForMultipleObjects(SendThreads, hThreadArray, TRUE, INFINITE);
-	for (int i = 0; i < SendThreads; i++)
-		CloseHandle(hThreadArray[i]);
+	if (m_FileListtoSend.size())
+	{
+		m_bSendThreadRun = true;
+		HANDLE	hThreadArray[SendThreads] = { 0 };
+		for (int i = 0; i < SendThreads; i++)
+			hThreadArray[i] = (HANDLE)_beginthreadex(nullptr, 0, ThreadSendFiles, this, 0, 0);
+
+		// 必须等待所有发送线程结束
+		TraceMsgA("%s TotalFileSize = %I64u.\n", __FUNCTION__, m_nTotalFileSize);
+		WaitForMultipleObjects(SendThreads, hThreadArray, TRUE, INFINITE);
+		for (int i = 0; i < SendThreads; i++)
+			CloseHandle(hThreadArray[i]);
+	}
+	
 	SetEvent(hEventFinished);
 	return 0;
 }
@@ -185,38 +189,37 @@ UINT CJokeAssistApp::SendThread()
 	if (pClient->Connect(_T("127.0.0.1"), nPort, 5000) == INVALID_SOCKET)
 		return -1;
 	pClient->EnableTCPDelay(TRUE);
+	//TraceMsgA("%s Succeed in connecting 127.0.0.1:5555\n", __FUNCTION__);
 	int nBufferSize = 1 * 1024 * 1024;
 	shared_ptr<byte>pBuffer = shared_ptr<byte>(new byte[nBufferSize]);
 	int nSendFiles = 0;
 	int nFailedFiles = 0;
+	FileInfoPtr pFile = nullptr;
 	while (m_bSendThreadRun)
 	{
-		do
+		if(!m_csFileListtoSend.TryLock())
 		{
-			try
-			{
-				AutoTrylockAgent(m_csFileListtoSend);
-				if (m_FileListtoSend.size())
-				{
-					FileInfoPtr pFile = m_FileListtoSend.front();
-					m_FileListtoSend.pop_front();
-					UnlockAgent();
-					if (!SendFile(pFile->strDir, pFile->strFile, pClient, pBuffer.get(), nBufferSize))
-					{
-						nFailedFiles++;
-						TraceMsgW(L"%s Failed in sending file:%s.\n", __FUNCTIONW__, pFile->strFile);
-					}
-					nSendFiles++;
-				}
-				else
-					Sleep(10);
-			}
-			catch (std::exception & e)
-			{
-			}
-			
-		} while (0);
+			Sleep(20);
+			continue;
+		}
+		if (m_FileListtoSend.size())
+		{
+			pFile = m_FileListtoSend.front();
+			m_FileListtoSend.pop_front();
+		}
+		m_csFileListtoSend.Unlock();
+		if (!pFile)
+			break;
+
+		if (!SendFile(pFile->strDir, pFile->strFile, pClient, pBuffer.get(), nBufferSize))
+		{
+			nFailedFiles++;
+			TraceMsgW(L"%s Failed in sending file:%s.\n", __FUNCTIONW__, pFile->strFile);
+		}
+		nSendFiles++;
+		pFile = nullptr;
 		Sleep(20);
+			
 	}
 	TraceMsgA("%s Send Bytes = %I64u", __FUNCTION__, pClient->m_nTotalSend);
 	return 0;

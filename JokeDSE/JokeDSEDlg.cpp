@@ -74,14 +74,32 @@ void session::do_read()
 {
 	auto self(shared_from_this());
 	socket_.async_read_some(asio::buffer(pTempdata, max_length),
-		[this, self](std::error_code ec, std::size_t length)
+		[this,self](std::error_code ec, std::size_t length)
 		{
+			/*nReadCount++;
+			if (nReadCount % 100 == 0)
+			{
+				TraceMsgA("%s ReadCount = %d.\n", __FUNCTION__, nReadCount);
+			}
+			SaveWaitTime(10);*/
+			//csBuffer.Lock();
 			MemMerge(&pBuffer, nDataLength, nBufferSize, pTempdata, length);
 			Parser();
+			//csBuffer.Unlock();
+			//pMainDlg->m_csListSession.Lock();
+			//pMainDlg->m_listSession.push_back(this);
+			//pMainDlg->m_csListSession.Unlock();
 
 			if (!ec)
 			{
 				do_read();
+			}
+			else
+			{
+				TraceMsgA("%s error[%d]:%s\n", __FUNCTION__, ec.value(), ec.message().c_str());
+				pMainDlg->m_csClients.Lock();
+				pMainDlg->m_nClients--;
+				pMainDlg->m_csClients.Unlock();
 			}
 		});
 }
@@ -112,20 +130,25 @@ void session::Parser()
 
 			}
 
-			if (nSavedLength == nFileSize )
-				CloseFile();
-
-			if (nDataLength > 0)
+			if (nSavedLength == nFileSize)
 			{
+				CloseFile();
 				GetFile(nOffset);
-				nDataLength -= nOffset;
-			}
+				
+			}			
 		}
 		else
 		{
 			GetFile(nOffset);
+		}
+		if (nDataLength > nOffset)
+		{
+			memmove(pBuffer, &pBuffer[nOffset], nDataLength - nOffset);
 			nDataLength -= nOffset;
 		}
+		else
+			nDataLength = 0;
+		
 
 	}
 	catch (CMemoryException* e)
@@ -341,12 +364,13 @@ BOOL CJokeDSEDlg::OnInitDialog()
 	SetDlgItemText(IDC_EDIT_SOURCEPATH, _T("D:\\Git\\IPCPlaySDK.git"));
 	m_ctlFileList.SubclassDlgItem(IDC_LIST_FILE, this);
 	m_ctlFileList.SetExtendedStyle(m_ctlFileList.GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER /*|LVS_EX_CHECKBOXES|LVS_EX_SUBITEMIMAGES*/);
-	m_ctlFileList.InsertColumn(0, _T("No"), LVCFMT_LEFT, 60);
-	m_ctlFileList.InsertColumn(1, _T("Source File"), LVCFMT_LEFT, 250);
-	m_ctlFileList.InsertColumn(2, _T("Dest File"), LVCFMT_LEFT, 250);
-	m_ctlFileList.InsertColumn(4, _T("Size"), LVCFMT_LEFT, 100);
-	m_ctlFileList.InsertColumn(5, _T("Recv"), LVCFMT_LEFT, 100);
-	m_ctlFileList.InsertColumn(6, _T("Status"), LVCFMT_LEFT, 60);
+	int nCols = 0;
+	m_ctlFileList.InsertColumn(nCols++, _T("No"), LVCFMT_LEFT, 60);
+	m_ctlFileList.InsertColumn(nCols++, _T("Source File"), LVCFMT_LEFT, 250);
+	m_ctlFileList.InsertColumn(nCols++, _T("Dest File"), LVCFMT_LEFT, 250);
+	m_ctlFileList.InsertColumn(nCols++, _T("Size"), LVCFMT_LEFT, 100);
+	//m_ctlFileList.InsertColumn(nCols++, _T("Recv"), LVCFMT_LEFT, 100);
+	m_ctlFileList.InsertColumn(nCols++, _T("Status"), LVCFMT_LEFT, 60);
 	
 	CRect rt;
 	GetWindowRect(&rt);
@@ -588,7 +612,20 @@ void CJokeDSEDlg::OnBnClickedButtonInject()
 	m_vecFileSize = 0;
 	m_ctlFileList.SetItemCount(0);
 	m_ctlFileList.Invalidate();
+
+	m_nFoundFiles = 0;
+	m_nSkippedFiles = 0;
+	m_nDecrypedFiles = 0;
+	m_nClients = 0;
+	m_nExceptions = 0;
 	
+	if (m_pThreadSaveFile)
+	{
+		m_bThreadSalveFile = false;
+		m_pThreadSaveFile->join();
+	}
+	m_bThreadSalveFile = true;
+	m_pThreadSaveFile = make_shared<std::thread>(&CJokeDSEDlg::ThreadSaveFile, this);
 	GetDlgItemText(IDC_EDIT_FILTER, m_strFilter);
 	SetEvent(m_hEventFinished);
 	EnableJoke();
@@ -691,7 +728,7 @@ void CJokeDSEDlg::OnTimer(UINT_PTR nIDEvent)
 		SetDlgItemInt(IDC_STATIC_FILESDECRYPTED, m_nDecrypedFiles);
 		SetDlgItemInt(IDC_STATIC_CONNECTIONS, m_nClients);
 		SetDlgItemInt(IDC_STATIC_EXCEPTIONS, m_nExceptions);
-		SetDlgItemInt(IDC_STATIC_RECV, m_nTotalBytes);
+		//SetDlgItemInt(IDC_STATIC_RECV, m_nTotalBytes);
 		
 		vector<FileItemPtr> vecTemp;
 		m_csList.Lock();
@@ -779,12 +816,12 @@ void CJokeDSEDlg::OnLvnGetdispinfoListFile(NMHDR *pNMHDR, LRESULT *pResult)
 			_stprintf_s(pItem->pszText,pItem->cchTextMax, _T("%d"), pFile->nFileSize);
 			break;
 		}
-		case 4:
+		/*case 4:
 		{
 			_stprintf_s(pItem->pszText, pItem->cchTextMax, _T("%d"), pFile->nRecved);
 			break;
-		}
-		case 5:
+		}*/
+		case 4:
 		{
 			_tcscpy_s(pItem->pszText, pItem->cchTextMax, pFile->nStatus ? _T("true") : _T("false"));
 			break;

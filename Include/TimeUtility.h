@@ -236,7 +236,7 @@ double  GetPerfTime();
 // 
 // extern CThreadSleep ThreadSleep;
 #define GetSleepPricision()	ThreadSleep.GetPrecision();
-#define  SaveWaitTime()	CWaitTime WaitTime(__FILE__,__LINE__,__FUNCTION__);
+#define  SaveWaitTime(nMaxWait)	CWaitTime WaitTime(__FILE__,__LINE__,__FUNCTION__,nMaxWait);
 
 class CWaitTime
 {
@@ -244,17 +244,19 @@ class CWaitTime
 	char szFile[512];
 	int nLine;
 	char szFunction[256];
+	int	 nMaxTime;
 public:
-	CWaitTime(char *szInFile, int nInLine, char *szInFunction)
+	CWaitTime(char *szInFile, int nInLine, char *szInFunction,int nMaxWaitTime)
 	{
 		dwTimeEnter = timeGetTime();
 		strcpy(szFile, szInFile);
 		nLine = nInLine;
 		strcpy(szFunction, szInFunction);
+		nMaxTime = nMaxWaitTime;
 	}
 	~CWaitTime()
 	{
-		if ((timeGetTime() - dwTimeEnter) > 200)
+		if ((timeGetTime() - dwTimeEnter) > nMaxTime)
 		{
 			char szText[1024] = { 0 };
 			sprintf(szText, "Wait Timeout @File:%s %d(%s) WaitTime = %d(ms).\n", szFile, nLine, szFunction, (timeGetTime() - dwTimeEnter));

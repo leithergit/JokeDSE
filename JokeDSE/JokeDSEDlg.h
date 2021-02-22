@@ -115,17 +115,19 @@ public:
 	CFile FileSave;
 	FileItemPtr pFileItem = nullptr;
 	int		nRecvCount = 0;
+	void Parser();
 private:
 	void do_read();
-	void Parser();
+	
 	void GetFile(int& nOffset);
 	void CloseFile();
 
 	tcp::socket socket_;
-	enum { max_length = 16384 };
+	enum { max_length = 8192 };
 	char* pTempdata = nullptr;
+	CCriticalSectionAgent csBuffer;
 	char* pBuffer = nullptr;
-
+	int nReadCount = 0;
 	int nDataLength = 0;
 	int nBufferSize = 128 * 1024;
 	CJokeDSEDlg* pMainDlg = nullptr;
@@ -147,6 +149,9 @@ public:
 		m_pAcceptor->async_accept(
 			[this](std::error_code ec, tcp::socket socket)
 			{
+				m_csClients.Lock();
+				m_nClients++;
+				m_csClients.Unlock();
 				if (!ec)
 				{
 					
@@ -178,6 +183,9 @@ public:
 	}
 	void Stop()
 	{
+		if (m_pIO_context)
+			m_pIO_context->stop();
+		
 		if (m_pThread)
 			m_pThread->join();
 	}
@@ -281,7 +289,6 @@ protected:
 				break;
 		}
 	}
-
 	void ParserData(CSockClient *pClientBase)
 	{
 		CFileClient *pClient = (CFileClient *)pClientBase;
@@ -335,7 +342,13 @@ protected:
 				GetFile(pClientBase,nOffset);
 				pClient->nDataLength -= nOffset;
 			}
-			
+			if (pClient->nDataLength > nOffset)
+			{
+				memmove(pBuffer, &pBuffer[nOffset], pClient->nDataLength - nOffset);
+				pClient->nDataLength -= nOffset;
+			}
+			else
+				pClient->nDataLength = 0;
 		}
 		catch (CMemoryException* e)
 		{
@@ -389,9 +402,9 @@ protected:
 		m_nTotalBytes = pClient->m_nTotalRecv;
 		if (pClient->nDataLength > 0)
 		{
-			// ParserData(pClient);
+			 ParserData(pClient);
 			//TraceMsgA("%s Total Recv Bytes:%I64u.\n", __FUNCTION__, pClient->m_nTotalRecv);
-			pClient->nDataLength = 0;
+			// pClient->nDataLength = 0;
 		}
 		return nRecv;
 	}
@@ -438,7 +451,35 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnBnClickedButtonInject();
+	CCriticalSectionAgent m_csListSession;
+	list<session *> m_listSession;
+	volatile bool m_bThreadSalveFile = false;
+	shared_ptr<std::thread> m_pThreadSaveFile = nullptr;
+	void ThreadSaveFile()
+	{
+		session* pSession = nullptr;
+		while (m_bThreadSalveFile)
+		{
+			while (!m_csListSession.TryLock())
+			{
+				Sleep(20);
+			}
 
+			if (m_listSession.size())
+			{
+				pSession = m_listSession.front();
+				m_listSession.pop_front();
+			}
+			m_csListSession.Unlock();
+			if (pSession)
+			{
+				pSession->Parser();
+				pSession = nullptr;
+			}
+				
+			Sleep(20);
+		}
+	}
 	void EnableJoke();
 	BOOL InitInjection();
 	BOOL UnInjection(bool bClearAll);
