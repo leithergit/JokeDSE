@@ -322,7 +322,7 @@ bool IsValidMailAddressW(WCHAR *szMail)
 	return true;
 }
 
-void TraceLongStringA(LPCSTR pFormat,byte *szString ,int nStringLength,...)
+void TraceLongStringA(LPCSTR pFormat,unsigned char *szString ,int nStringLength,...)
 {
 	va_list args;
 	va_start(args, nStringLength);
@@ -351,7 +351,7 @@ void TraceLongStringA(LPCSTR pFormat,byte *szString ,int nStringLength,...)
 	// OutputDebugString(_T("\n"));
 }
 
-void TraceLongStringW(LPCWSTR pFormat,byte *szString ,int nStringLength,...)
+void TraceLongStringW(LPCWSTR pFormat,unsigned char *szString ,int nStringLength,...)
 {
 	va_list args;
 	va_start(args, nStringLength);
@@ -635,7 +635,7 @@ void OutputBinW(UCHAR *szBin,UINT nLength,WCHAR *szFileName,WCHAR *szTitle)
 	}
 }
 
-byte Char2Hex(unsigned char nCh)
+unsigned char Char2Hex(unsigned char nCh)
 {
 	toupper(nCh);
 	if((nCh >= '0') && (nCh <= '9'))	
@@ -752,14 +752,14 @@ bool IsHexDigitW(WCHAR nCh)
 
 // 返回值		<0时 输入参数不合法
 //				>0 返回转换后的ASCII符串的长度
-int Hex2AscStringW(IN byte *pHex,IN int nHexLen,OUT WCHAR *szAscString,IN int nBuffLen,WCHAR chSeperator)
+int Hex2AscStringW(IN unsigned char *pHex,IN int nHexLen,OUT WCHAR *szAscString,IN int nBuffLen,WCHAR chSeperator)
 {	
 	static const  char chHexTableW[] = {L'0',L'1',L'2',L'3',L'4',L'5',L'6',L'7',L'8',L'9',L'A',L'B',L'C',L'D',L'E',L'F'};
 	if (!pHex ||
 		!szAscString||
 		!nBuffLen)
 		return -1;
-	byte nMult = 3;
+	unsigned char nMult = 3;
 	if (chSeperator == L'\0')
 		nMult = 2;
 	if (nHexLen*nMult > nBuffLen)
@@ -787,14 +787,14 @@ int Hex2AscStringW(IN byte *pHex,IN int nHexLen,OUT WCHAR *szAscString,IN int nB
 
 // 返回值		<0时 输入参数不合法
 //				>0 返回转换后的ASCII符串的长度
-int Hex2AscStringA(IN byte *pHex,IN int nHexLen,OUT CHAR *szAscString,IN int nBuffLen,CHAR chSeperator)
+int Hex2AscStringA(IN unsigned char *pHex,IN int nHexLen,OUT CHAR *szAscString,IN int nBuffLen,CHAR chSeperator)
 {	
 	static const  char chHexTableA[] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 	if (!pHex ||
 		!szAscString||
 		!nBuffLen)
 		return -1;
-	byte nMult = 3;
+	unsigned char nMult = 3;
 	if (chSeperator == '\0')
 		nMult = 2;
 	if (nHexLen*nMult > nBuffLen)
@@ -823,14 +823,14 @@ int Hex2AscStringA(IN byte *pHex,IN int nHexLen,OUT CHAR *szAscString,IN int nBu
 // nBuffLen			输出缓冲区最大长度
 // 返回值			<0时 输入参数不合法
 //					>0 返回转换后pHex数据的长度
-int AscString2HexW(IN WCHAR *szAscString,IN int nAscStringLen,OUT byte *pHex,IN int nBuffLen,WCHAR chSeperator)
+int AscString2HexW(IN WCHAR *szAscString,IN int nAscStringLen,OUT unsigned char *pHex,IN int nBuffLen,WCHAR chSeperator)
 {//							
 	static WCHAR *AscTable = L"0123456789ABCDEF";
 	if (!szAscString ||
 		!pHex||
 		!nBuffLen)
 		return -1;
-	byte nMult = 3;
+	unsigned char nMult = 3;
 	if (chSeperator == L'\0')
 		nMult = 2;
 
@@ -842,9 +842,9 @@ int AscString2HexW(IN WCHAR *szAscString,IN int nAscStringLen,OUT byte *pHex,IN 
 	for (int i = 0;i < nAscStringLen;i += nMult)
 	{		
 		ch = UpcasecharW(szAscString[i]);
-		byte nHi = Char2DigitW(ch);
+		unsigned char nHi = Char2DigitW(ch);
 		ch = UpcasecharW(szAscString[i + 1]);
-		byte nLo = Char2DigitW(ch);
+		unsigned char nLo = Char2DigitW(ch);
 		pHex[nCount ++] = (nHi &0x0F)<<4|(nLo &0x0F);
 	}
 	return nCount;
@@ -859,14 +859,14 @@ int AscString2HexW(IN WCHAR *szAscString,IN int nAscStringLen,OUT byte *pHex,IN 
 // nBuffLen			输出缓冲区最大长度
 // 返回值			<0时 输入参数不合法
 //					>0 返回转换后pHex数据的长度
-int AscString2HexA(IN CHAR *szAscString,IN int nAscStringLen,OUT byte *pHex,IN int nBuffLen,CHAR chSeperator)
+int AscString2HexA(IN CHAR *szAscString,IN int nAscStringLen,OUT unsigned char *pHex,IN int nBuffLen,CHAR chSeperator)
 {//							
 	static CHAR *AscTable = "0123456789ABCDEF";
 	if (!szAscString ||
 		!pHex||
 		!nBuffLen)
 		return -1;
-	byte nMult = 3;
+	unsigned char nMult = 3;
 	if (chSeperator == '\0')
 		nMult = 2;
 
@@ -878,9 +878,9 @@ int AscString2HexA(IN CHAR *szAscString,IN int nAscStringLen,OUT byte *pHex,IN i
 	for (int i = 0;i < nAscStringLen;i += nMult)
 	{		
 		ch = UpcasecharA(szAscString[i]);
-		byte nHi = Char2DigitA(ch);
+		unsigned char nHi = Char2DigitA(ch);
 		ch = UpcasecharA(szAscString[i + 1]);
-		byte nLo = Char2DigitA(ch);
+		unsigned char nLo = Char2DigitA(ch);
 		pHex[nCount ++] = (nHi &0x0F)<<4|(nLo &0x0F);
 	}
 	return nCount;
@@ -1170,14 +1170,14 @@ static UINT const CRCTABLE [ 256 ] =
 
 WORD CALC_CRC16 (unsigned char *lpszBuff,  WORD Len,WORD nInitValue)
 {
-	byte da;
+	unsigned char da;
 	WORD ii;
 	WORD crchl;
 
 	crchl = nInitValue ;
 	for ( ii = 0x00 ; ii < Len ; ii ++ )
 	{		
-		da = (byte)( crchl / 256 ) ;                   
+		da = (unsigned char)( crchl / 256 ) ;                   
 		crchl <<= 0x08 ;                        
 		crchl ^= CRCTABLE [ da ^ lpszBuff[ii]] ;  
 	}
@@ -1486,32 +1486,32 @@ int AnalysisDataW(WCHAR *szSrc,int nSrcLen,WCHAR *szText,int &nTextLen,WCHAR Fla
 }
 
 
-byte	*UINT642Byte(UINT64 nValue64)
+unsigned char	*UINT642Byte(UINT64 nValue64)
 {
-	static byte szValue[8] = {0};
-	byte *pByte = (byte *)&nValue64;
+	static unsigned char szValue[8] = {0};
+	unsigned char *pByte = (unsigned char *)&nValue64;
 	for (int i = 0;i < 8;i ++)
 		szValue[i] = pByte[7 - i];
-	return (byte *)szValue;
+	return (unsigned char *)szValue;
 }
 
-UINT64  Byte2UINT64(byte *pByte)
+UINT64  Byte2UINT64(unsigned char *pByte)
 {
 	DWORD nLo = MAKELONG(MAKEWORD(pByte[7],pByte[6]),MAKEWORD(pByte[5],pByte[4]));
 	DWORD nHi = MAKELONG(MAKEWORD(pByte[3],pByte[2]),MAKEWORD(pByte[1],pByte[0]));
 	return MAKEUINT64(nLo,nHi);
 }
 
-byte *UINT2Byte(UINT nValue32)
+unsigned char *UINT2Byte(UINT nValue32)
 {
-	static byte szValue[4] = {0};
-	byte *pByte = (byte *)&nValue32;
+	static unsigned char szValue[4] = {0};
+	unsigned char *pByte = (unsigned char *)&nValue32;
 	for (int i = 0;i < 4;i ++)
 		szValue[i] = pByte[3 - i];
-	return (byte *)szValue;
+	return (unsigned char *)szValue;
 
 }
-UINT Byte2UINT(byte *pByte)
+UINT Byte2UINT(unsigned char *pByte)
 {
 	WORD nLo = MAKEWORD(pByte[3],pByte[2]);
 	WORD nHi = MAKEWORD(pByte[1],pByte[0]);
@@ -1521,7 +1521,7 @@ UINT Byte2UINT(byte *pByte)
 //KMP匹配算法模式串的预处理
 //返回true,执行成功
 //返回false,则为pNext空间不足
-bool GetNext(byte *szKey,int nKeyLength,int *pNext,int nNextLength)
+bool GetNext(unsigned char *szKey,int nKeyLength,int *pNext,int nNextLength)
 {  
 	int i = 0,j = -1;  
 	pNext[0] = -1; 
@@ -2017,7 +2017,7 @@ const DWORD Crc32Table[] =
 	0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-DWORD GetCRC32(byte *pBuffer,DWORD  Length,DWORD dwInitCRC)
+DWORD GetCRC32(unsigned char *pBuffer,DWORD  Length,DWORD dwInitCRC)
 {
 	DWORD crc;
 	DWORD i;
@@ -2308,7 +2308,7 @@ int GetFixedHardDriversA(CHAR *szDrvList,int nBuffSize)
 				CloseHandle(hDevice);
 			if (pDevDesc)
 			{
-				delete [](byte *)pDevDesc;
+				delete [](unsigned char *)pDevDesc;
 			}
 		}
 		return nDrvCount;
@@ -2433,7 +2433,7 @@ int GetFixedHardDriversW(WCHAR *szDrvList,int nBuffSize)
 			CloseHandle(hDevice);
 		if (pDevDesc)
 		{
-			delete [](byte *)pDevDesc;
+			delete [](unsigned char *)pDevDesc;
 		}
 	}
 	return nDrvCount;
@@ -2488,7 +2488,7 @@ bool GetMaxFreeSpaceHDDrviersW(WCHAR *szDrv,int nBuffSize)
 
 
 // 字节流转换为_variant_t数据
-bool BytePtr2Variant(IN byte *pBuff,IN int nLength,OUT _variant_t &var)
+bool BytePtr2Variant(IN unsigned char *pBuff,IN int nLength,OUT _variant_t &var)
 {
 	if (!pBuff || !nLength)
 		return false;
@@ -2500,7 +2500,7 @@ bool BytePtr2Variant(IN byte *pBuff,IN int nLength,OUT _variant_t &var)
 }
 
 // _variant_t数据换为字节流转
-bool Variant2BytePtr(IN _variant_t var,INOUT byte *pBuff,IN int nBuffSize,OUT int &nDatalen)
+bool Variant2BytePtr(IN _variant_t var,INOUT unsigned char *pBuff,IN int nBuffSize,OUT int &nDatalen)
 {
 	assert(var.vt == VT_BSTR);
 	if (var.vt == VT_BSTR)

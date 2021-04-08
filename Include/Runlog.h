@@ -14,7 +14,7 @@
 #ifdef _STD_SMARTPTR				// 使用STL的智能指针
 #include <memory>
 using namespace std;
-using namespace std::tr1;
+//using namespace std::tr1;
 #else
 #include <boost/shared_ptr.hpp>
 using namespace boost;

@@ -32,7 +32,7 @@
 using namespace std;
 #ifdef _STD_SMARTPTR
 #include <memory>
-using namespace std::tr1;
+//using namespace std::tr1;
 #else
 #include <boost/smart_ptr.hpp>
 using namespace boost;

@@ -17,7 +17,7 @@
 //using namespace std;
 #ifdef _STD_SMARTPTR
 #include <memory>
-using namespace std::tr1;
+using namespace std;
 #else
 #include <boost/smart_ptr.hpp>
 using namespace boost;
@@ -288,7 +288,7 @@ bool DeleteAutoRunA(LPCSTR strAutoRunItem);
 bool DeleteAutoRunW(LPCWSTR strAutoRunItem);
 bool IsAutoRunA(LPCSTR strAutoRunItem,bool &bAutoRun);
 bool IsAutoRunW(LPCWSTR strAutoRunItem,bool &bAutoRun);
-DWORD GetCRC32(byte *pBuffer,DWORD  Length,DWORD dwInitCRC = 0);
+DWORD GetCRC32(unsigned char *pBuffer,DWORD  Length,DWORD dwInitCRC = 0);
 
 //////////////////////////////////////////////////////////////////////////
 // 从完整的文件路径取出其所在目录
@@ -355,10 +355,10 @@ bool GetMaxFreeSpaceHDDrviersA(CHAR	*szDrv,int nBuffSize);
 bool GetMaxFreeSpaceHDDrviersW(WCHAR	*szDrv,int nBuffSize);
 
 // 字节流转换为_variant_t数据
-bool BytePtr2Variant(IN byte *pBuff,IN int nLength,OUT _variant_t &var);
+bool BytePtr2Variant(IN unsigned char *pBuff,IN int nLength,OUT _variant_t &var);
 
 // _variant_t数据换为字节流转
-bool Variant2BytePtr(IN _variant_t var,INOUT byte *pBuff,IN int nBuffSize,OUT int &nDatalen);
+bool Variant2BytePtr(IN _variant_t var,INOUT unsigned char *pBuff,IN int nBuffSize,OUT int &nDatalen);
 
 // LPCSTR DateTimeA();
 // 

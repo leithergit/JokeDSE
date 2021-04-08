@@ -58,6 +58,8 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Program Files (x86)\Visual Leak Detector\include;..\include;..\Asio1.81</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -88,6 +90,8 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_STD_SMARTPTR;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Program Files (x86)\Visual Leak Detector\include;..\include;..\Asio1.81</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
